@@ -1,0 +1,8 @@
+discord.py[voice]>=2.3
+aiohttp>=3.9
+yt-dlp>=2024.1.0
+aiosqlite>=0.19
+python-dotenv>=1.0
+requests>=2.31
+PyNaCl>=1.5
+spotipy>=2.23
