@@ -19,7 +19,7 @@ System:
 
 Token:
     Set DISCORD_TOKEN in environment or create a .env file:
-        DISCORD_TOKEN=MTU1ODUwMjQ5NTY5MTc0MzM1Mw.GWjBaG.ggVr9ygBEZzUazMbdM4l5I9KiDpwvDOgOW53zM
+        DISCORD_TOKEN=your_bot_token
 
     Optional Spotify API (playlist tracks → YouTube matches):
         SPOTIFY_CLIENT_ID=...
