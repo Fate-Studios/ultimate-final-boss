@@ -2283,6 +2283,31 @@ def _resolve_youtube_search(query: str, requester: str = "") -> list[Song]:
     return songs
 
 
+def _spotify_embed_queries(kind: str, sid: str) -> list[str]:
+    """No-auth fallback: read track list from the public Spotify embed page.
+
+    Spotify's API now rejects client-credentials access to playlist items (401),
+    so scrape open.spotify.com/embed instead (first ~100 tracks).
+    """
+    import json as _json
+    r = requests.get(
+        f"https://open.spotify.com/embed/{kind}/{sid}",
+        headers={"User-Agent": "Mozilla/5.0"},
+        timeout=15,
+    )
+    r.raise_for_status()
+    m = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', r.text, re.S)
+    if not m:
+        return []
+    entity = _json.loads(m.group(1))["props"]["pageProps"]["state"]["data"]["entity"]
+    out = []
+    for t in entity.get("trackList") or []:
+        title, artist = t.get("title"), (t.get("subtitle") or "").replace("\xa0", " ")
+        if title:
+            out.append(f"{artist} - {title}" if artist else title)
+    return out[:50]
+
+
 def _resolve_spotify_to_songs(url: str, requester: str = "") -> list[Song]:
     """Map Spotify track/playlist/album → YouTube Songs via search."""
     kind, sid = _spotify_id_from_url(url)
@@ -2305,7 +2330,12 @@ def _resolve_spotify_to_songs(url: str, requester: str = "") -> list[Song]:
         artists = ", ".join(a["name"] for a in t.get("artists", []))
         queries.append(f"{artists} - {t['name']}")
     elif kind == "playlist":
-        results = sp.playlist_items(sid, additional_types=("track",))
+        try:
+            results = sp.playlist_items(sid, additional_types=("track",))
+        except Exception as e:
+            log(f"Spotify API playlist failed ({e}); using embed fallback")
+            results = None
+            queries.extend(_spotify_embed_queries("playlist", sid))
         while results:
             for item in results["items"]:
                 track = item.get("track") or {}
