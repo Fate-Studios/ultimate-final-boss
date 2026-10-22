@@ -139,6 +139,9 @@ YDL_OPTS = {
     "ignoreerrors": False,
     "noplaylist": True,  # single tracks; playlists handled separately
     "extract_flat": False,
+    # YouTube needs a JS runtime to solve signature challenges (Node in Docker image)
+    "js_runtimes": {"node": {}},
+    "remote_components": ["ejs:github"],
 }
 
 def _youtube_cookiefile() -> Optional[str]:
