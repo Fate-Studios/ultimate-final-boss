@@ -3265,8 +3265,23 @@ async def _dash_tools(request: "aiohttp.web.Request"):
     if not _dash_auth_ok(request):
         raise web.HTTPFound("/login")
 
-    body = """
+    msg = request.query.get("msg", "")
+    flash = f'<div class="card" style="margin-bottom:14px">{_html_esc(msg)}</div>' if msg else ""
+    body = flash + """
     <div class="grid">
+      <div class="card">
+        <h3>Join VC</h3>
+        <form method="post" action="/tools/joinvc">
+          <label>Voice channel ID</label>
+          <input name="channel_id" placeholder="123456789012345678" required>
+          <button class="btn" type="submit">Join</button>
+        </form>
+        <form method="post" action="/tools/leavevc" style="margin-top:8px">
+          <label>Leave VC in server (channel ID of the VC to leave)</label>
+          <input name="channel_id" placeholder="123456789012345678" required>
+          <button class="btn danger" type="submit">Leave</button>
+        </form>
+      </div>
       <div class="card">
         <h3>Say (post as bot)</h3>
         <form method="post" action="/tools/say">
@@ -3313,6 +3328,53 @@ async def _dash_tools_say(request: "aiohttp.web.Request"):
     raise web.HTTPFound("/tools")
 
 
+async def _dash_tools_joinvc(request: "aiohttp.web.Request"):
+    from aiohttp import web
+    from urllib.parse import quote
+
+    if not _dash_auth_ok(request):
+        raise web.HTTPFound("/login")
+    data = await request.post()
+    cid = as_int(data.get("channel_id"))
+    ch = bot.get_channel(cid) if cid else None
+    if ch is None and cid:
+        try:
+            ch = await bot.fetch_channel(cid)
+        except Exception:
+            ch = None
+    if not isinstance(ch, (discord.VoiceChannel, discord.StageChannel)):
+        out = "Not a voice channel the bot can see."
+    else:
+        try:
+            vc = ch.guild.voice_client
+            if vc is None:
+                await ch.connect()
+            elif vc.channel.id != ch.id:
+                await vc.move_to(ch)
+            out = f"Joined {ch.name} in {ch.guild.name}."
+        except Exception as e:
+            out = f"Couldn't join: {e}"
+    raise web.HTTPFound("/tools?msg=" + quote(out))
+
+
+async def _dash_tools_leavevc(request: "aiohttp.web.Request"):
+    from aiohttp import web
+    from urllib.parse import quote
+
+    if not _dash_auth_ok(request):
+        raise web.HTTPFound("/login")
+    data = await request.post()
+    cid = as_int(data.get("channel_id"))
+    ch = bot.get_channel(cid) if cid else None
+    vc = ch.guild.voice_client if ch is not None else None
+    if vc is None:
+        out = "Bot isn't in voice in that server."
+    else:
+        await vc.disconnect()
+        out = f"Left voice in {ch.guild.name}."
+    raise web.HTTPFound("/tools?msg=" + quote(out))
+
+
 async def _dash_tools_dm(request: "aiohttp.web.Request"):
     from aiohttp import web
 
@@ -3353,6 +3415,8 @@ async def start_dashboard():
     app.router.add_get("/tools", _dash_tools)
     app.router.add_post("/tools/say", _dash_tools_say)
     app.router.add_post("/tools/dm", _dash_tools_dm)
+    app.router.add_post("/tools/joinvc", _dash_tools_joinvc)
+    app.router.add_post("/tools/leavevc", _dash_tools_leavevc)
 
     runner = web.AppRunner(app)
     await runner.setup()
