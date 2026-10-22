@@ -140,6 +140,28 @@ YDL_OPTS = {
     "noplaylist": True,  # single tracks; playlists handled separately
     "extract_flat": False,
 }
+
+def _youtube_cookiefile() -> Optional[str]:
+    """YouTube blocks datacenter IPs ("Sign in to confirm you're not a bot").
+    Pass cookies via YOUTUBE_COOKIES (Netscape cookies.txt contents) or
+    YOUTUBE_COOKIES_FILE (path)."""
+    path = os.getenv("YOUTUBE_COOKIES_FILE", "").strip()
+    if path and os.path.exists(path):
+        return path
+    raw = os.getenv("YOUTUBE_COOKIES", "").strip()
+    if raw:
+        raw = raw.replace("\\n", "\n")
+        out = os.path.join(tempfile.gettempdir(), "yt_cookies.txt")
+        with open(out, "w") as f:
+            f.write(raw + "\n")
+        return out
+    return None
+
+
+_YT_COOKIES = _youtube_cookiefile()
+if _YT_COOKIES:
+    YDL_OPTS["cookiefile"] = _YT_COOKIES
+
 YDL_PLAYLIST_OPTS = {
     **YDL_OPTS,
     "noplaylist": False,
