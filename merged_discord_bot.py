@@ -1041,6 +1041,50 @@ async def unlock_cmd(
     await modlog(interaction, "Channel unlock", interaction.user, reason, extra=target.mention)
 
 
+@bot.command(name="lock")
+@commands.guild_only()
+@commands.has_permissions(manage_channels=True)
+@commands.bot_has_permissions(manage_channels=True)
+async def lock_prefix(ctx: commands.Context, *, reason: Optional[str] = None):
+    """.lock [reason] — @everyone can't send here (admins still can)."""
+    target = ctx.channel
+    if not isinstance(target, discord.TextChannel):
+        await ctx.reply("❌ Only text channels.", mention_author=False)
+        return
+    overwrite = target.overwrites_for(ctx.guild.default_role)
+    if overwrite.send_messages is False:
+        await ctx.reply(f"ℹ️ {target.mention} is already locked.", mention_author=False)
+        return
+    overwrite.send_messages = False
+    await target.set_permissions(
+        ctx.guild.default_role, overwrite=overwrite, reason=reason or f".lock by {ctx.author}"
+    )
+    await ctx.send(f"🔒 {target.mention} is locked. Only admins can send messages.")
+    await modlog(ctx, "Channel lock", ctx.author, reason, extra=target.mention)
+
+
+@bot.command(name="unlock")
+@commands.guild_only()
+@commands.has_permissions(manage_channels=True)
+@commands.bot_has_permissions(manage_channels=True)
+async def unlock_prefix(ctx: commands.Context, *, reason: Optional[str] = None):
+    """.unlock [reason] — restore @everyone's ability to send here."""
+    target = ctx.channel
+    if not isinstance(target, discord.TextChannel):
+        await ctx.reply("❌ Only text channels.", mention_author=False)
+        return
+    overwrite = target.overwrites_for(ctx.guild.default_role)
+    if overwrite.send_messages is not False:
+        await ctx.reply(f"ℹ️ {target.mention} isn't locked.", mention_author=False)
+        return
+    overwrite.send_messages = None
+    await target.set_permissions(
+        ctx.guild.default_role, overwrite=overwrite, reason=reason or f".unlock by {ctx.author}"
+    )
+    await ctx.send(f"🔓 {target.mention} is unlocked.")
+    await modlog(ctx, "Channel unlock", ctx.author, reason, extra=target.mention)
+
+
 # ===========================================================================
 # Prefix moderation (.kick / .to / .ban)
 # ===========================================================================
